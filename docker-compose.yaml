@@ -1,0 +1,46 @@
+networks:
+  awesomeAPP:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+services:
+  db:
+    container_name: postgres
+    build:
+      context: .
+      dockerfile: pkg/database/Dockerfile
+    networks:
+      - awesomeAPP
+    environment:
+      POSTGRES_USER: tmosto
+      POSTGRES_PASSWORD: tmosto
+      POSTGRES_DB: items
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "items", "-U", "tmosto" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    container_name: app
+    build:
+      context: .
+      dockerfile: ./cmd/app/Dockerfile
+    networks:
+      - awesomeAPP
+    ports:
+      - "8080:8080"
+    environment:
+      DB_PORT: "5432"
+      AWP_DB_DRIVER: postgres
+      AWP_DB_DATASOURCE: postgresql://tmosto:tmosto@postgres:5432/items?sslmode=disable
+      AWP_PORT: 8080
+    depends_on:
+      db:
+        condition: service_healthy
